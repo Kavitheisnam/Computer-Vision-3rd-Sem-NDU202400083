@@ -33,7 +33,7 @@ Apply image processing algorithm
 
 Display output
 
-# Analyze results
+Analyze results
 
 # Results
 The experiments successfully demonstrated various Computer Vision techniques, producing clear visual outputs and validating the effectiveness of implemented algorithms.
