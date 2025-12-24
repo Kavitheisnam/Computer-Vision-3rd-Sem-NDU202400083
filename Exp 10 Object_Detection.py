@@ -6,91 +6,52 @@
 
 
 import cv2
+import torch
+from ultralytics import YOLO
 import numpy as np
 
-# ------------------- Read Image -------------------
-image = cv2.imread("test.jpg")
+# 1. SETUP
+img_path = "Exp 10 Object Detection\sample.jpg"
+#output_path = "Exp 10 Object Detection\output.jpg"
+image = cv2.imread(img_path)
 
 if image is None:
-    print("Error: Image not found")
+    print("Error: Could not load image.")
     exit()
 
+# --- 2. ACCURATE HAAR CASCADE (Face Only) ---
+# Increased minNeighbors to 12+ to kill the "ghost" box on the dog
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+faces = face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=12)
 
-# =================================================
-# 1. TRADITIONAL OBJECT DETECTION (HAAR CASCADE)
-# =================================================
-
-# Load Haar Cascade for face detection
-face_cascade = cv2.CascadeClassifier(
-    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-)
-
-faces = face_cascade.detectMultiScale(
-    gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30)
-)
-
-haar_image = image.copy()
+haar_result = image.copy()
 for (x, y, w, h) in faces:
-    cv2.rectangle(haar_image, (x, y), (x + w, y + h), (255, 0, 0), 2)
+    cv2.rectangle(haar_result, (x, y), (x+w, y+h), (0, 255, 0), 3)
+    cv2.putText(haar_result, "Haar Face", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+    
+# Using YOLOv8m (Medium) at high resolution (imgsz=1280) for perfect boundaries
+model = YOLO("yolov8m.pt") 
+results = model.predict(source=image, imgsz=1280, conf=0.6, save=False)
+yolo_result = results[0].plot()
 
-# =================================================
-# 2. DEEP LEARNING OBJECT DETECTION (SSD + MOBILENET)
-# =================================================
+# --- 4. COMBINE, RESIZE, AND SAVE ---
+# Stack images side-by-side
+combined = np.hstack((haar_result, yolo_result))
 
-# Load model files
-prototxt = r"C:\Users\kavit\OneDrive\Desktop\Practical Mtech 3rd Exp 1 to 10\Exp 10 Object Detection\MobileNetSSD_deploy.prototxt"
-model = r"C:\Users\kavit\OneDrive\Desktop\Practical Mtech 3rd Exp 1 to 10\Exp 10 Object Detection\MobileNetSSD_deploy.caffemodel"
+scale_percent = 70
+width = int(combined.shape[1] * scale_percent / 100)
+height = int(combined.shape[0] * scale_percent / 100)
+dim = (width, height)
 
-net = cv2.dnn.readNetFromCaffe(prototxt, model)
+# INTER_AREA is best for shrinking images without losing sharpness
+final_output = cv2.resize(combined, dim, interpolation=cv2.INTER_AREA)
 
-net = cv2.dnn.readNetFromCaffe(prototxt, model)
+# Save to disk
+#cv2.imwrite(output_path, final_output)
+#print(f"Success! Accurate comparison saved as: {output_path}")
 
-
-net = cv2.dnn.readNetFromCaffe(prototxt, model)
-
-# Class labels
-CLASSES = [
-    "background", "aeroplane", "bicycle", "bird", "boat",
-    "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
-    "dog", "horse", "motorbike", "person", "pottedplant",
-    "sheep", "sofa", "train", "tvmonitor"
-]
-
-(h, w) = image.shape[:2]
-
-blob = cv2.dnn.blobFromImage(
-    cv2.resize(image, (300, 300)),
-    0.007843, (300, 300), 127.5
-)
-
-net.setInput(blob)
-detections = net.forward()
-
-dnn_image = image.copy()
-
-for i in range(detections.shape[2]):
-    confidence = detections[0, 0, i, 2]
-
-    if confidence > 0.5:
-        idx = int(detections[0, 0, i, 1])
-        box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
-        (startX, startY, endX, endY) = box.astype("int")
-
-        label = f"{CLASSES[idx]}: {confidence:.2f}"
-        cv2.rectangle(dnn_image, (startX, startY), (endX, endY), (0, 255, 0), 2)
-        cv2.putText(
-            dnn_image, label, (startX, startY - 10),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2
-        )
-
-# =================================================
-# DISPLAY RESULTS
-# =================================================
-
-cv2.imshow("Original Image", image)
-cv2.imshow("Traditional Object Detection (Haar Cascade)", haar_image)
-cv2.imshow("Deep Learning Object Detection (SSD + MobileNet)", dnn_image)
-
+# Display
+cv2.imshow("Output", final_output)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
