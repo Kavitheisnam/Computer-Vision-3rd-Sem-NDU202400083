@@ -11,8 +11,8 @@ from ultralytics import YOLO
 import numpy as np
 
 # 1. SETUP
-img_path = "Exp 10 Object Detection\sample.jpg"
-#output_path = "Exp 10 Object Detection\output.jpg"
+img_path = "test.jpg"
+output_path = "Exp 10 Object Detection\output.jpg"
 image = cv2.imread(img_path)
 
 if image is None:
@@ -55,3 +55,4 @@ final_output = cv2.resize(combined, dim, interpolation=cv2.INTER_AREA)
 cv2.imshow("Output", final_output)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+
